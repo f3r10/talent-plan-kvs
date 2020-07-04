@@ -8,6 +8,8 @@ use std::io::{BufWriter, BufReader, SeekFrom};
 use serde::{Serialize, Deserialize};
 use serde_json;
 use std::io::prelude::*;
+use std::fs;
+use std::ffi::OsStr;
 
 /// This is an example doc test
 ///
@@ -27,14 +29,15 @@ pub struct KvStore {
     index: BTreeMap<String, CommandPos>,
     path: PathBuf,
     writer: BufWriterWithPos<File>,
-    reader: BufReaderWithPos<File>,
+    readers: HashMap<u64, BufReaderWithPos<File>>,
+    current_log: u64
 }
 
 #[derive(Debug)]
 pub enum KvStoreError{
     SerdeIo(serde_json::Error),
     Io(std::io::Error),
-    MapError{details: String},
+    KeyNotFound,
 }
 pub type Result<T> = result::Result<T, KvStoreError>;
 
@@ -48,24 +51,25 @@ impl From<serde_json::Error> for KvStoreError {
     fn from(err: serde_json::Error) -> Self {
         KvStoreError::SerdeIo(err)
     }
-}
+} 
+
 
 impl fmt::Display for KvStoreError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &*self {
-            KvStoreError::SerdeIo(ref err) => write!(f, "{}", err),
-            KvStoreError::Io(ref err) => write!(f, "{}", err),
-            KvStoreError::MapError{details} => write!(f, "{}", details)
+            KvStoreError::SerdeIo(ref err) => err.fmt(f),
+            KvStoreError::Io(ref err) => err.fmt(f),
+            KvStoreError::KeyNotFound => write!(f, "Key not found"),
         }
     }
 }
 
 impl error::Error for KvStoreError {
     fn description(&self) -> &str {
-        match &*self {
+        match *self {
             KvStoreError::SerdeIo(ref err) => err.description(),
             KvStoreError::Io(ref err) => err.description(),
-            KvStoreError::MapError{details} => &details,
+            KvStoreError::KeyNotFound => "Key not found",
         }
     }
 }
@@ -150,9 +154,56 @@ enum Command{
 struct CommandPos {
     pos: u64,
     len: u64,
+    log_id: u64,
 }
 
 
+fn deserialize_file(
+    reader: &mut BufReaderWithPos<File>,
+    index: &mut BTreeMap<String, CommandPos>,
+    log_id: u64,
+) -> Result<()>{
+    let mut pos = reader.seek(SeekFrom::Start(0))?;
+    let mut stream = serde_json::Deserializer::from_reader(reader).into_iter();
+    while let Some(cmd) = stream.next() {
+        let current_pos = stream.byte_offset() as u64;
+        match cmd? {
+            Command::Set{key, ..} => {
+                let pos = CommandPos{pos, len: (current_pos - pos), log_id};
+                index.insert(key, pos)
+            }
+            Command::Rm(key) => {
+                index.remove(&key)
+            }
+        };
+        pos = current_pos;
+    };
+    Ok(())
+}
+
+fn get_log_ids(path: &PathBuf) -> Result<Vec<u64>> {
+    let files = fs::read_dir(path)?;
+    let target = std::ffi::OsString::from("log");
+    let mut a: Vec<u64> = files
+        .filter_map(std::io::Result::ok)
+        .map(|e| e.path())
+        .filter(|entry| entry.is_file() && entry.extension() == Some(&target))
+        .flat_map(|entry| {
+            entry.file_name()
+                 .and_then(OsStr::to_str)
+                 .map(|file| file.trim_end_matches(".log"))
+                 .map(str::parse::<u64>)
+        })
+        .flatten()
+        .collect();
+    a.sort_unstable();
+    Ok(a)
+
+}
+
+fn construct_file(id: u64, path: &PathBuf) -> PathBuf {
+    path.join(format!("{}.log", id))
+}
 impl KvStore {
     /// new method would create a new instance of `KvStore`
     // pub fn new() -> KvStore {
@@ -162,46 +213,35 @@ impl KvStore {
     // }
 
     // pub fn open<P: AsRef<Path> + Sized>(path: P) -> Result<KvStore> {
-    fn deserialize_file(
-        reader: &mut BufReaderWithPos<File>,
-        index: &mut BTreeMap<String, CommandPos>,
-    ) -> Result<()>{
-        let mut pos = reader.seek(SeekFrom::Start(0))?;
-        let mut stream = serde_json::Deserializer::from_reader(reader).into_iter();
-        while let Some(cmd) = stream.next() {
-            let current_pos = stream.byte_offset() as u64;
-            match cmd? {
-                Command::Set{key, ..} => {
-                    let pos = CommandPos{pos, len: (current_pos - pos)};
-                    index.insert(key, pos)
-                }
-                Command::Rm(key) => {
-                    index.remove(&key)
-                }
-            };
-            pos = current_pos;
-        };
-        Ok(())
-    }
 
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let path = path.into();
-        let txt = path.join("cmd.json");
+        fs::create_dir_all(&path)?;
+        let log_ids = get_log_ids(&path)?;
+        let mut index: BTreeMap<String, CommandPos> = BTreeMap::new();
+        let mut readers: HashMap<u64, BufReaderWithPos<File>> = HashMap::new();
+        for &id in &log_ids {
+            let mut reader = BufReaderWithPos::new(File::open(construct_file(id, &path))?)?;
+            deserialize_file(&mut reader, &mut index, id)?;
+            readers.insert(id, reader);
+        }
+        let last_log_to_write = log_ids.last().unwrap_or(&0) + 1;
+        let log = construct_file(last_log_to_write, &path);
         let file = OpenOptions::new()
             .read(true)
             .append(true)
             .create(true)
-            .open(&txt)
+            .open(&log)
             .expect("Cannot open file");
-        let mut reader = BufReaderWithPos::new(File::open(txt)?)?;
-        let mut index: BTreeMap<String, CommandPos> = BTreeMap::new();
-        KvStore::deserialize_file(&mut reader, &mut index)?;
         let writer = BufWriterWithPos::new(file)?;
+        let reader = BufReaderWithPos::new(File::open(log)?)?;
+        readers.insert(last_log_to_write, reader);
         Ok(KvStore{
-            path: path.into(),
+            path,
             index,
             writer,
-            reader,
+            readers,
+            current_log: last_log_to_write,
         })
     }
 
@@ -213,22 +253,18 @@ impl KvStore {
         let latest_post = self.writer.pos;
         serde_json::to_writer(&mut self.writer, &cmd)?;
         self.writer.writer.flush()?;
-        let new_pos = CommandPos{pos: latest_post, len: (self.writer.pos - latest_post)};
+        let new_pos = CommandPos{pos: latest_post, len: (self.writer.pos - latest_post), log_id: self.current_log};
         self.index.insert(key, new_pos);
         Ok(())
-
-            // .map_err(KvStoreError::SerdeIo)
-            // .and_then(|_| {
-            //     self.index.insert(key, self.writer.pos);
-            //     Ok(())
-            // })
     }
 
     /// gets the value of a specific key if there is some or none.
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
         match self.index.get(&key) {
             Some(a) => {
-                let reader = self.reader.reader.get_mut();
+                let reader = self.readers
+                                 .get_mut(&a.log_id)
+                                 .expect("unable to find current log");
                 reader.seek(SeekFrom::Start(a.pos))?;
                 let cmd_writer = reader.take(a.len);
                 if let Command::Set{value,  ..} = serde_json::from_reader(cmd_writer)? {
@@ -251,7 +287,7 @@ impl KvStore {
                 self.index.remove(&key).expect("Key not found");
                 Ok(())
             }
-            false => Err(KvStoreError::MapError{details:"Key not found".to_owned()})
+            false => Err(KvStoreError::KeyNotFound)
         }
     }
 }
