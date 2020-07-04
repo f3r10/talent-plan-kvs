@@ -32,8 +32,8 @@ fn main() -> Result<()> {
             let mut store = KvStore::open(path)?;
             let value_o = store.get(key.to_owned())?;
             match value_o {
-                Some(v) => Ok(println!("value: {}", v)),
-                None => Ok(println!("value not present")),
+                Some(v) => Ok(println!("{}", v)),
+                None => Ok(println!("Key not found")),
             }
         }
         ("set", Some(_matches)) => {
