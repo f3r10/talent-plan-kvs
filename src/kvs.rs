@@ -1,15 +1,14 @@
 use std::collections::{HashMap, BTreeMap};
 use std::path::PathBuf;
 use std::fs::{OpenOptions, File};
-use std::result;
-use std::fmt;
-use std::error;
 use std::io::{BufWriter, BufReader, SeekFrom};
 use serde::{Serialize, Deserialize};
 use serde_json;
 use std::io::prelude::*;
 use std::fs;
 use std::ffi::OsStr;
+use super::Result;
+use super::KvStoreError;
 
 const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 
@@ -36,15 +35,6 @@ pub struct KvStore {
     uncompacted: u64,
 }
 
-#[derive(Debug)]
-pub enum KvStoreError{
-    SerdeIo(serde_json::Error),
-    Io(std::io::Error),
-    KeyNotFound,
-}
-pub type Result<T> = result::Result<T, KvStoreError>;
-
-
 #[derive(Debug, Serialize, Deserialize)]
 enum Command{
     Set{key: String, value: String},
@@ -56,10 +46,6 @@ struct CommandPos {
     pos: u64,
     len: u64,
     log_id: u64,
-}
-
-pub fn test() {
-    println!("hello from lib file")
 }
 
 impl KvStore {
@@ -288,38 +274,6 @@ fn create_new_writer_log(
     readers.insert(id, reader);
     Ok(writer)
 
-}
-impl From<std::io::Error> for KvStoreError {
-    fn from(err: std::io::Error) -> KvStoreError {
-        KvStoreError::Io(err)
-    }
-}
-
-impl From<serde_json::Error> for KvStoreError {
-    fn from(err: serde_json::Error) -> Self {
-        KvStoreError::SerdeIo(err)
-    }
-}
-
-
-impl fmt::Display for KvStoreError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &*self {
-            KvStoreError::SerdeIo(ref err) => err.fmt(f),
-            KvStoreError::Io(ref err) => err.fmt(f),
-            KvStoreError::KeyNotFound => write!(f, "Key not found"),
-        }
-    }
-}
-
-impl error::Error for KvStoreError {
-    fn description(&self) -> &str {
-        match *self {
-            KvStoreError::SerdeIo(ref err) => err.description(),
-            KvStoreError::Io(ref err) => err.description(),
-            KvStoreError::KeyNotFound => "Key not found",
-        }
-    }
 }
 
 

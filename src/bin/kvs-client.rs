@@ -35,7 +35,8 @@ fn main() -> Result<()> {
     match matches.subcommand() {
         ("get", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
-            let client = KvsClient::connect(addr.to_owned()).unwrap();
+            let client = KvsClient::connect(addr.to_owned())?;
+            Ok(())
             // let path = current_dir()?;
             // let mut store = KvStore::open(path)?;
             // let value_o = store.get(key.to_owned())?;
@@ -47,19 +48,20 @@ fn main() -> Result<()> {
         ("set", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
             let value = _matches.value_of("VALUE").expect("VALUE argument missing");
-            let client = KvsClient::connect(addr.to_owned()).unwrap();
+            let client = KvsClient::connect(addr.to_owned())?;
+            Ok(())
             // let path = current_dir()?;
             // let mut store = KvStore::open(path)?;
             // store.set(key.to_owned(), value.to_owned())
         }
         ("rm", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
-            let client = KvsClient::connect(addr.to_owned()).unwrap();
+            let client = KvsClient::connect(addr.to_owned())?;
+            Ok(())
             // let path = current_dir()?;
             // let mut store = KvStore::open(path)?;
             // store.remove(key.to_owned())
         }
         _ => unreachable!(),
-    };
-    Ok(())
+    }
 }

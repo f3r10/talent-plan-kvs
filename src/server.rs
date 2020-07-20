@@ -1,4 +1,5 @@
 use std::net::TcpListener;
+use super::Result;
 
 pub struct KvsServer {
     engine: String
@@ -9,7 +10,7 @@ impl KvsServer{
         KvsServer{engine}
     }
 
-    pub fn run(self, addr: String) -> Result<(), String> {
+    pub fn run(self, addr: String) -> Result<()> {
         let listener = TcpListener::bind(addr).unwrap();
         for stream in listener.incoming() {
             let stream = stream.unwrap();
