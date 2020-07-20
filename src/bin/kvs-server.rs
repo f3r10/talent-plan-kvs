@@ -1,11 +1,11 @@
-#[macro_use]
 extern crate slog;
 extern crate slog_term;
 extern crate slog_async;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use slog::{Drain, o, info};
 use std::fs::OpenOptions;
+use kvs::{KvsServer, Result};
 
 fn main() {
     let log_path = "stderr";
@@ -33,11 +33,8 @@ fn main() {
                 .default_value("kvs")
         )
         .get_matches();
-    if let Some(addr) = matches.value_of("addr") {
-        info!(log, "--addr: {}", addr);
-    }
-
-    if let Some(engine) = matches.value_of("engine") {
-        info!(log, "--engine: {}", engine);
-    }
+    let engine = matches.value_of("engine").unwrap_or("kvs");
+    let addr = matches.value_of("addr").unwrap_or("127.0.0.1:4000");
+    let server = KvsServer::new(engine.to_owned());
+    server.run(addr.to_owned()).unwrap();
 }
