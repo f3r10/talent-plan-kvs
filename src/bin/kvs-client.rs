@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         ("get", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
             let client = KvsClient::connect(addr.to_owned())?;
-            Ok(())
+            client.get(key.to_owned())
             // let path = current_dir()?;
             // let mut store = KvStore::open(path)?;
             // let value_o = store.get(key.to_owned())?;
