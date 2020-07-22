@@ -173,9 +173,9 @@ impl KvStore {
     pub fn remove(&mut self, key: String) -> Result<()> {
         if let Some(cmd_old) = self.index.remove(&key) {
             let cmd: Command = Command::Rm(key.to_owned());
-            serde_json::to_writer(&mut self.writer, &cmd).unwrap();
+            serde_json::to_writer(&mut self.writer, &cmd)?;
             self.uncompacted += cmd_old.len;
-            self.writer.writer.flush().unwrap();
+            self.writer.writer.flush()?;
             Ok(())
         } else {
             Err(KvStoreError::KeyNotFound)
@@ -223,7 +223,7 @@ fn remove_empty_logs(path: & PathBuf) -> Result<()> {
         .filter(|entry| entry.is_file() && entry.extension() == Some(&target))
         .flat_map(|e| {
             let met = fs::metadata(&e);
-            if met.unwrap().len() == 0 {
+            if met?.len() == 0 {
                 fs::remove_file(e)
             } else {
                 Ok(())

@@ -1,8 +1,6 @@
 extern crate clap;
 use clap::{App, Arg, SubCommand};
-use std::process;
-use kvs::{KvStore, Result, KvsClient};
-use std::env::current_dir;
+use kvs::{Result, KvsClient};
 
 fn main() -> Result<()> {
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -35,32 +33,23 @@ fn main() -> Result<()> {
     match matches.subcommand() {
         ("get", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
-            let client = KvsClient::connect(addr.to_owned())?;
-            client.get(key.to_owned())
-            // let path = current_dir()?;
-            // let mut store = KvStore::open(path)?;
-            // let value_o = store.get(key.to_owned())?;
-            // match value_o {
-            //     Some(v) => Ok(println!("{}", v)),
-            //     None => Ok(println!("Key not found")),
-            // }
+            let mut client = KvsClient::connect(addr.to_owned())?;
+            let value_o = client.get(key.to_owned())?;
+            match value_o {
+                Some(v) => Ok(println!("{}", v)),
+                None => Ok(println!("Key not found")),
+            }
         }
         ("set", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
             let value = _matches.value_of("VALUE").expect("VALUE argument missing");
-            let client = KvsClient::connect(addr.to_owned())?;
-            Ok(())
-            // let path = current_dir()?;
-            // let mut store = KvStore::open(path)?;
-            // store.set(key.to_owned(), value.to_owned())
+            let mut client = KvsClient::connect(addr.to_owned())?;
+            client.set(key.to_owned(), value.to_owned())
         }
         ("rm", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
-            let client = KvsClient::connect(addr.to_owned())?;
-            Ok(())
-            // let path = current_dir()?;
-            // let mut store = KvStore::open(path)?;
-            // store.remove(key.to_owned())
+            let mut client = KvsClient::connect(addr.to_owned())?;
+            client.rm(key.to_owned())
         }
         _ => unreachable!(),
     }

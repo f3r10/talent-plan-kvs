@@ -35,6 +35,6 @@ fn main() -> Result<()> {
         .get_matches();
     let engine = matches.value_of("engine").unwrap_or("kvs");
     let addr = matches.value_of("addr").unwrap_or("127.0.0.1:4000");
-    let server = KvsServer::new(engine.to_owned());
+    let server = KvsServer::new(engine.to_owned())?;
     server.run(addr.to_owned())
 }

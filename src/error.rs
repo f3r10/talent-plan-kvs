@@ -1,12 +1,12 @@
 use std::result;
 use std::fmt;
-use std::error;
 
 #[derive(Debug)]
 pub enum KvStoreError{
     SerdeIo(serde_json::Error),
     Io(std::io::Error),
     KeyNotFound,
+    ServerResponseErr(String),
 }
 pub type Result<T> = result::Result<T, KvStoreError>;
 
@@ -29,16 +29,18 @@ impl fmt::Display for KvStoreError {
             KvStoreError::SerdeIo(ref err) => err.fmt(f),
             KvStoreError::Io(ref err) => err.fmt(f),
             KvStoreError::KeyNotFound => write!(f, "Key not found"),
+            KvStoreError::ServerResponseErr(ref err) => err.fmt(f),
         }
     }
 }
 
-impl error::Error for KvStoreError {
-    fn description(&self) -> &str {
-        match *self {
-            KvStoreError::SerdeIo(ref err) => err.description(),
-            KvStoreError::Io(ref err) => err.description(),
-            KvStoreError::KeyNotFound => "Key not found",
-        }
-    }
-}
+// impl error::Error for KvStoreError {
+//     fn description(&self) -> &str {
+//         match *self {
+//             KvStoreError::SerdeIo(ref err) => err.description(),
+//             KvStoreError::Io(ref err) => err.description(),
+//             KvStoreError::KeyNotFound => "Key not found",
+//             KvStoreError::ServerResponseErr(err) => &err,
+//         }
+//     }
+// }
