@@ -1,11 +1,16 @@
 extern crate slog;
 extern crate slog_term;
 extern crate slog_async;
+use std::io::prelude::*;
+use kvs::KvStoreError;
 
 use clap::{App, Arg};
 use slog::{Drain, o, info};
 use std::fs::OpenOptions;
 use kvs::{KvsServer, Result};
+use std::env::current_dir;
+use kvs::KvStore;
+use kvs::SledKvsEngine;
 
 fn main() -> Result<()> {
     let log_path = "stderr";
@@ -35,6 +40,49 @@ fn main() -> Result<()> {
         .get_matches();
     let engine = matches.value_of("engine").unwrap_or("kvs");
     let addr = matches.value_of("addr").unwrap_or("127.0.0.1:4000");
-    let server = KvsServer::new(engine.to_owned())?;
-    server.run(addr.to_owned())
+    start_server(engine.to_owned(), addr.to_owned())
+}
+
+fn start_server(engine: String, addr: String) -> Result<()> {
+    let path = current_dir()?;
+    let engine_check = check_engine(engine.to_owned())?;
+    if engine_check {
+        match engine.as_ref() {
+            "kvs" => {
+                println!("starting kvs ..");
+                let store: KvStore = KvStore::open(path)?;
+                let server = KvsServer::new(store)?;
+                server.run(addr.to_owned())
+            },
+            "sled" => {
+                println!("starting sled ..");
+                let store  = SledKvsEngine::open(path)?;
+                let server = KvsServer::new(store)?;
+                server.run(addr.to_owned())
+            },
+            _ => unreachable!()
+
+        }
+    } else {
+        Err(KvStoreError::EngineError)
+    }
+}
+fn check_engine(engine: String) -> Result<bool> {
+    let path = current_dir()?;
+    let file = path.join("config.log");
+    let mut config = OpenOptions::new()
+        .read(true)
+        .create(true)
+        .write(true)
+        .open(&file)?;
+    let size = config.metadata()?.len();
+    println!("size : {}", size);
+    if size > 0 {
+        let mut engine_info = String::new();
+        config.read_to_string(&mut engine_info)?;
+        Ok(engine_info.as_ref() == engine)
+    } else {
+        config.write_all(engine.as_bytes())?;
+        Ok(true)
+    }
 }
