@@ -1,6 +1,4 @@
 extern crate slog;
-extern crate slog_term;
-extern crate slog_async;
 use std::io::prelude::*;
 use kvs::KvStoreError;
 
@@ -11,6 +9,7 @@ use kvs::{KvsServer, Result};
 use std::env::current_dir;
 use kvs::KvStore;
 use kvs::SledKvsEngine;
+use std::net::SocketAddr;
 
 fn main() -> Result<()> {
     let log_path = "stderr";
@@ -39,7 +38,9 @@ fn main() -> Result<()> {
         )
         .get_matches();
     let engine = matches.value_of("engine").unwrap_or("kvs");
+    info!(log, "Engine: {}", engine);
     let addr = matches.value_of("addr").unwrap_or("127.0.0.1:4000");
+    info!(log, "Addr: {}", addr);
     start_server(engine.to_owned(), addr.to_owned())
 }
 
@@ -49,16 +50,14 @@ fn start_server(engine: String, addr: String) -> Result<()> {
     if engine_check {
         match engine.as_ref() {
             "kvs" => {
-                println!("starting kvs ..");
                 let store: KvStore = KvStore::open(path)?;
                 let server = KvsServer::new(store)?;
-                server.run(addr.to_owned())
+                server.run(addr.parse::<SocketAddr>()?)
             },
             "sled" => {
-                println!("starting sled ..");
                 let store  = SledKvsEngine::open(path)?;
                 let server = KvsServer::new(store)?;
-                server.run(addr.to_owned())
+                server.run(addr.parse::<SocketAddr>()?)
             },
             _ => unreachable!()
 
@@ -76,7 +75,6 @@ fn check_engine(engine: String) -> Result<bool> {
         .write(true)
         .open(&file)?;
     let size = config.metadata()?.len();
-    println!("size : {}", size);
     if size > 0 {
         let mut engine_info = String::new();
         config.read_to_string(&mut engine_info)?;

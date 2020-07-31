@@ -4,6 +4,7 @@ use serde_json::de::{Deserializer, IoRead};
 use serde::Deserialize;
 use super::helper;
 use std::io::{BufWriter, BufReader, Write};
+use std::net::SocketAddr;
 
 pub struct KvsClient{
     reader: Deserializer<IoRead<BufReader<TcpStream>>>,
@@ -13,7 +14,7 @@ pub struct KvsClient{
 
 
 impl KvsClient {
-    pub fn connect(addr: String) -> Result<Self> {
+    pub fn connect(addr: SocketAddr) -> Result<Self> {
         let reader = TcpStream::connect(addr)?;
         let reader2 = reader.try_clone()?;
         let writer = reader.try_clone()?;
@@ -26,13 +27,10 @@ impl KvsClient {
 
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
         let mut cmd = helper::Request::Get(key);
-        println!("cmd");
         serde_json::to_writer(&mut self.writer, &mut cmd)?;
         self.writer.flush()?;
-        println!("write");
         let mut result2 = Deserializer::from_reader(&mut self.reader2); // this can be abstracted on the struct definition
         let result3 = helper::GetResponse::deserialize(&mut result2)?;
-        println!("read");
         match result3 {
             helper::GetResponse::Ok(Some(value)) => Ok(Some(value)),
             helper::GetResponse::Ok(None) => Ok(None),

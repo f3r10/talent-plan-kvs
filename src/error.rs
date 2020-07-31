@@ -2,7 +2,6 @@ use std::result;
 use std::fmt;
 use sled;
 
-#[derive(Debug)]
 pub enum KvStoreError{
     SerdeIo(serde_json::Error),
     Io(std::io::Error),
@@ -10,9 +9,17 @@ pub enum KvStoreError{
     ServerResponseErr(String),
     SledError(sled::Error),
     StringUtf8Error(std::string::FromUtf8Error),
-    EngineError
+    EngineError,
+    AddrParseError(std::net::AddrParseError),
 }
 pub type Result<T> = result::Result<T, KvStoreError>;
+
+
+impl From<std::net::AddrParseError> for KvStoreError {
+    fn from(err: std::net::AddrParseError) -> KvStoreError {
+        KvStoreError::AddrParseError(err)
+    }
+}
 
 impl From<std::io::Error> for KvStoreError {
     fn from(err: std::io::Error) -> KvStoreError {
@@ -40,6 +47,21 @@ impl From<std::string::FromUtf8Error> for KvStoreError {
 }
 
 
+impl fmt::Debug for KvStoreError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &*self {
+            KvStoreError::SerdeIo(ref err) => err.fmt(f),
+            KvStoreError::Io(ref err) => err.fmt(f),
+            KvStoreError::KeyNotFound => write!(f, "Key not found"),
+            KvStoreError::ServerResponseErr(ref err) => err.fmt(f),
+            KvStoreError::SledError(ref err) => err.fmt(f),
+            KvStoreError::StringUtf8Error(ref err) => err.fmt(f),
+            KvStoreError::EngineError => write!(f, "Already created an engine conf"),
+            KvStoreError::AddrParseError(ref err) => err.fmt(f),
+        }
+    }
+   
+}
 impl fmt::Display for KvStoreError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &*self {
@@ -50,17 +72,9 @@ impl fmt::Display for KvStoreError {
             KvStoreError::SledError(ref err) => err.fmt(f),
             KvStoreError::StringUtf8Error(ref err) => err.fmt(f),
             KvStoreError::EngineError => write!(f, "Already created an engine conf"),
+            KvStoreError::AddrParseError(ref err) => err.fmt(f),
         }
     }
 }
 
-// impl error::Error for KvStoreError {
-//     fn description(&self) -> &str {
-//         match *self {
-//             KvStoreError::SerdeIo(ref err) => err.description(),
-//             KvStoreError::Io(ref err) => err.description(),
-//             KvStoreError::KeyNotFound => "Key not found",
-//             KvStoreError::ServerResponseErr(err) => &err,
-//         }
-//     }
-// }
+impl std::error::Error for KvStoreError {}
