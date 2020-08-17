@@ -1,8 +1,8 @@
 extern crate clap;
 use clap::{App, Arg, SubCommand};
-use kvs::{Result, KvsClient};
-use std::net::SocketAddr;
 use kvs::KvStoreError;
+use kvs::{KvsClient, Result};
+use std::net::SocketAddr;
 use std::process::exit;
 
 fn main() -> Result<()> {
@@ -41,7 +41,6 @@ fn main() -> Result<()> {
         )
         .get_matches();
 
-
     match matches.subcommand() {
         ("get", Some(_matches)) => {
             let key = _matches.value_of("KEY").expect("KEY argument missing");
@@ -69,11 +68,10 @@ fn main() -> Result<()> {
                 Err(KvStoreError::KeyNotFound) => {
                     println!("Key not found");
                     exit(1);
-
-                },
+                }
                 Err(e) => {
                     println!("error: {:?}", e);
-                    return Err(e)
+                    return Err(e);
                 }
             }
         }
