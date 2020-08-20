@@ -19,7 +19,7 @@ impl<E: KvsEngine> KvsServer<E>{
         let listener = TcpListener::bind(addr)?;
         for stream in listener.incoming() {
             let stream = stream?;
-             self.handle_connection(stream)?;
+            self.handle_connection(stream)?;
             println!("Connection established");
         }
         Ok(())

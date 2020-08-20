@@ -25,6 +25,8 @@ tempfile = "3.0.7"
 walkdir = "2.2.7"
 criterion = "0.3.3"
 rand = "0.6.5"
+crossbeam-utils = "0.6.5"
+panic-control = "0.1.4"
 
 [[bench]]
 name = "benchmark_1"
