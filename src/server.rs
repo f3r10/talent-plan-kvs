@@ -1,7 +1,7 @@
 use super::helper;
 use super::Result;
 use crate::engine::KvsEngine;
-use crate::NaiveThreadPool;
+use crate::SharedQueueThreadPool;
 use crate::ThreadPool;
 use serde_json::Deserializer;
 use std::io::prelude::*;
@@ -19,12 +19,13 @@ impl<E: KvsEngine> KvsServer<E> {
 
     pub fn run(self, addr: SocketAddr) -> Result<()> {
         let listener = TcpListener::bind(addr)?;
-        let pool = NaiveThreadPool::new(4)?;
+        let pool = SharedQueueThreadPool::new(4)?;
         for stream in listener.incoming() {
             let stream = stream?;
             let engine = self.engine.clone();
             pool.spawn(move || {
-                handle_connection(engine, stream).unwrap();
+                // panic!("oh no!");
+                handle_connection(engine, stream).expect("Thread operations");
                 println!("Connection established");
             })
         }

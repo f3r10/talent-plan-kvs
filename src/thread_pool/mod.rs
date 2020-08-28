@@ -1,12 +1,15 @@
 use crate::Result;
-use std::thread;
 
-pub struct NaiveThreadPool;
-pub struct SharedQueueThreadPool;
+mod naive;
+mod shared_queue;
+
 pub struct RayonThreadPool;
 
+pub use self::naive::NaiveThreadPool;
+pub use self::shared_queue::SharedQueueThreadPool;
+
 pub trait ThreadPool {
-    fn new(threads: u32) -> Result<Self>
+    fn new(threads: usize) -> Result<Self>
     where
         Self: Sized;
 
@@ -15,37 +18,12 @@ pub trait ThreadPool {
         F: FnOnce() + Send + 'static;
 }
 
-impl ThreadPool for NaiveThreadPool {
-    fn new(threads: u32) -> Result<Self> {
-        Ok(NaiveThreadPool)
-    }
-
-    fn spawn<F>(&self, job: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        thread::spawn(move || {
-            job();
-        });
-    }
-}
-
-impl ThreadPool for SharedQueueThreadPool {
-    fn new(threads: u32) -> Result<Self> {
-        unimplemented!()
-    }
-
-    fn spawn<F>(&self, job: F) {
-        unimplemented!()
-    }
-}
-
 impl ThreadPool for RayonThreadPool {
-    fn new(threads: u32) -> Result<Self> {
+    fn new(_threads: usize) -> Result<Self> {
         unimplemented!()
     }
 
-    fn spawn<F>(&self, job: F) {
+    fn spawn<F>(&self, _job: F) {
         unimplemented!()
     }
 }
