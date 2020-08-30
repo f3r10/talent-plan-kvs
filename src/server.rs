@@ -1,25 +1,28 @@
 use super::helper;
 use super::Result;
 use crate::engine::KvsEngine;
-use crate::SharedQueueThreadPool;
 use crate::ThreadPool;
 use serde_json::Deserializer;
 use std::io::prelude::*;
 use std::net::SocketAddr;
 use std::net::{TcpListener, TcpStream};
 
-pub struct KvsServer<E: KvsEngine> {
+pub struct KvsServer<E: KvsEngine, T: ThreadPool> {
     engine: E,
+    thread_pool: T,
 }
 
-impl<E: KvsEngine> KvsServer<E> {
-    pub fn new(engine: E) -> Result<Self> {
-        Ok(KvsServer { engine })
+impl<E: KvsEngine, T: ThreadPool> KvsServer<E, T> {
+    pub fn new(engine: E, thread_pool: T) -> Result<Self> {
+        Ok(KvsServer {
+            engine,
+            thread_pool,
+        })
     }
 
     pub fn run(self, addr: SocketAddr) -> Result<()> {
         let listener = TcpListener::bind(addr)?;
-        let pool = SharedQueueThreadPool::new(4)?;
+        let pool = self.thread_pool;
         for stream in listener.incoming() {
             let stream = stream?;
             let engine = self.engine.clone();

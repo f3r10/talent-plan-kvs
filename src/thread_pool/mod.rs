@@ -1,11 +1,11 @@
 use crate::Result;
 
 mod naive;
+mod rayon;
 mod shared_queue;
 
-pub struct RayonThreadPool;
-
 pub use self::naive::NaiveThreadPool;
+pub use self::rayon::RayonThreadPool;
 pub use self::shared_queue::SharedQueueThreadPool;
 
 pub trait ThreadPool {
@@ -16,14 +16,4 @@ pub trait ThreadPool {
     fn spawn<F>(&self, job: F)
     where
         F: FnOnce() + Send + 'static;
-}
-
-impl ThreadPool for RayonThreadPool {
-    fn new(_threads: usize) -> Result<Self> {
-        unimplemented!()
-    }
-
-    fn spawn<F>(&self, _job: F) {
-        unimplemented!()
-    }
 }

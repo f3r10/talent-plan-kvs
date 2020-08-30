@@ -1,14 +1,17 @@
 extern crate slog;
-use std::io::prelude::*;
 use kvs::KvStoreError;
+use std::io::prelude::*;
 
 use clap::{App, Arg};
-use slog::{Drain, o, info};
-use std::fs::OpenOptions;
-use kvs::{KvsServer, Result};
-use std::env::current_dir;
 use kvs::KvStore;
+use kvs::RayonThreadPool;
+use kvs::SharedQueueThreadPool;
 use kvs::SledKvsEngine;
+use kvs::ThreadPool;
+use kvs::{KvsServer, Result};
+use slog::{info, o, Drain};
+use std::env::current_dir;
+use std::fs::OpenOptions;
 use std::net::SocketAddr;
 
 fn main() -> Result<()> {
@@ -27,14 +30,16 @@ fn main() -> Result<()> {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .arg(
-            Arg::from_usage("--addr [IP-PORT] Optionally accepts an IP address, with the format IP:PORT")
-                .help("accepts an IP address with port")
-                .default_value("127.0.0.1:4000")
+            Arg::from_usage(
+                "--addr [IP-PORT] Optionally accepts an IP address, with the format IP:PORT",
+            )
+            .help("accepts an IP address with port")
+            .default_value("127.0.0.1:4000"),
         )
         .arg(
             Arg::from_usage("--engine [IP-PORT] Optionally which engine should be started")
                 .help("engine: kvs or sled")
-                .default_value("kvs")
+                .default_value("kvs"),
         )
         .get_matches();
     let engine = matches.value_of("engine").unwrap_or("kvs");
@@ -51,16 +56,17 @@ fn start_server(engine: String, addr: String) -> Result<()> {
         match engine.as_ref() {
             "kvs" => {
                 let store: KvStore = KvStore::open(path)?;
-                let server = KvsServer::new(store)?;
+                let thread_pool = RayonThreadPool::new(4).unwrap();
+                let server = KvsServer::new(store, thread_pool)?;
                 server.run(addr.parse::<SocketAddr>()?)
-            },
+            }
             "sled" => {
-                let store  = SledKvsEngine::open(path)?;
-                let server = KvsServer::new(store)?;
+                let store = SledKvsEngine::open(path)?;
+                let thread_pool = SharedQueueThreadPool::new(4).unwrap();
+                let server = KvsServer::new(store, thread_pool)?;
                 server.run(addr.parse::<SocketAddr>()?)
-            },
-            _ => unreachable!()
-
+            }
+            _ => unreachable!(),
         }
     } else {
         Err(KvStoreError::EngineError)
